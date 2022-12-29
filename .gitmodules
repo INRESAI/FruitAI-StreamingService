@@ -1,3 +1,3 @@
 [submodule "ai/yolov7"]
 	path = ai/yolov7
-	url = git@github.com:WongKinYiu/yolov7.git
+	url = git@github.com:INRESAI/yolov7.git

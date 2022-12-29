@@ -10,16 +10,16 @@ rtc_router = APIRouter()
 @rtc_router.post("", response_model=RTCResponse)
 async def rtc_streaming(offer: RTCRequest):
     pc = RTCPeerConnection(
-        # RTCConfiguration([
-        #     RTCIceServer(
-        #         urls=["stun:14.224.131.219:3478"]
-        #     ),
-        #     RTCIceServer(
-        #         urls=["turn:14.224.131.219:3478"],
-        #         credential="turnserver",
-        #         username="turnserver"
-        #     ),
-        # ])
+        RTCConfiguration([
+            RTCIceServer(
+                urls=["stun:14.224.131.219:3478"]
+            ),
+            RTCIceServer(
+                urls=["turn:14.224.131.219:3478"],
+                credential="turnserver",
+                username="turnserver"
+            ),
+        ])
     )
     pc.addTrack(FruitTrackingModel.get(offer.url or "test2.mp4").get_stream_track())
     await pc.setRemoteDescription(offer)
