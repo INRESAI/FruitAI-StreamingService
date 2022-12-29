@@ -21,21 +21,28 @@ class FruitTrackingModel:
     _instances: dict[str, "FruitTrackingModel"] = {}
 
     @classmethod
-    def get(cls, url: str):
+    def start(cls, url: str):
         if url not in cls._instances:
             cls._instances[url] = cls(url)
         return cls._instances[url]
 
+    @classmethod
+    def stop(cls, url: str):
+        if url in cls._instances:
+            cls._instances[url].running = False
+            del cls._instances[url]
+
     def __init__(self, url: str):
         self.url = url
 
+        self.running = True
         track_thread = Thread(target=self.track)
         track_thread.daemon = True
         track_thread.start()
         self.track_thread = track_thread
 
     def track(self):
-        while True:
+        while self.running:
             imgsz = 640
             conf_thres = 0.25
             iou_thres = 0.45

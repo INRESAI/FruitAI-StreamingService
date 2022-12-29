@@ -7,6 +7,7 @@ from ..schema.rtc import RTCRequest, RTCResponse
 
 rtc_router = APIRouter()
 
+
 @rtc_router.post("", response_model=RTCResponse)
 async def rtc_streaming(offer: RTCRequest):
     pc = RTCPeerConnection(
@@ -21,7 +22,13 @@ async def rtc_streaming(offer: RTCRequest):
             ),
         ])
     )
-    pc.addTrack(FruitTrackingModel.get(offer.url or "test2.mp4").get_stream_track())
+    pc.addTrack(FruitTrackingModel.start(offer.url or "test2.mp4").get_stream_track())
     await pc.setRemoteDescription(offer)
     await pc.setLocalDescription(await pc.createAnswer())
     return pc.localDescription
+
+
+@rtc_router.get("/stop")
+async def stop_all_stream():
+    for url in FruitTrackingModel._instances.copy():
+        FruitTrackingModel.stop(url)
