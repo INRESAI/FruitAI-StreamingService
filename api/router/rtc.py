@@ -22,7 +22,7 @@ async def rtc_streaming(offer: RTCRequest):
             ),
         ])
     )
-    pc.addTrack(FruitTrackingModel.start(offer.url or "test2.mp4").get_stream_track())
+    pc.addTrack(FruitTrackingModel.start(offer.url or "test/test1.mp4").get_stream_track())
     await pc.setRemoteDescription(offer)
     await pc.setLocalDescription(await pc.createAnswer())
     return pc.localDescription

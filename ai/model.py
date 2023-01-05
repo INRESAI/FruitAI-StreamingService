@@ -5,6 +5,7 @@ ROOT = Path(__file__).parent
 sys.path.append(str(ROOT/"yolov7"))
 
 from threading import Thread
+from time import time
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -16,6 +17,14 @@ from utils.datasets import LoadImages, LoadStreams
 from utils.general import check_img_size, non_max_suppression, scale_coords
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device
+
+from .classify import classify, load_model
+
+WEIGHTS = ROOT/"weights"
+
+YOLO_WEIGHT = WEIGHTS/"best.pt"
+MANGO_WEIGHT = WEIGHTS/"weight_mango_efficient.pth"
+DRAGON_WEIGHT = WEIGHTS/"weight_dragon_efficient.pth"
 
 
 class FruitTrackingModel:
@@ -36,13 +45,24 @@ class FruitTrackingModel:
     def __init__(self, url: str):
         self.url = url
 
-        self.running = True
-        track_thread = Thread(target=self.track)
-        track_thread.daemon = True
-        track_thread.start()
-        self.track_thread = track_thread
+        self.current_det = None
+        self.current_frame = None
+        self.classify_result = []
 
-    def track(self):
+        self.running = True
+
+        detect_thread = Thread(target=self.detect)
+        detect_thread.daemon = True
+        detect_thread.start()
+        self.detect_thread = detect_thread
+
+
+        classify_thread = Thread(target=self.classify)
+        classify_thread.daemon = True
+        classify_thread.start()
+        self.classify_thread = classify_thread
+
+    def detect(self):
         while self.running:
             imgsz = 640
             conf_thres = 0.25
@@ -71,8 +91,23 @@ class FruitTrackingModel:
 
             # Get names and colors
             names = model.module.names if hasattr(model, 'module') else model.names
-            colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
-            classes = [names.index(name) for name in names if name.startswith("pile")]
+            # bgr
+            # colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+            # detect
+            colors = [
+                [0, 0, 0],
+                [0, 0, 0],
+                [255, 0, 0], # blue
+                [191, 64, 191], # purple
+            ]
+            # classify
+            colors2 = [
+                [0, 255, 0], # green
+                [0, 255, 255], # yellow
+                [0, 0, 255], # red
+            ]
+            # classes = [names.index(name) for name in names if name.startswith("pile")]
+            classes = None
 
             # Run inference
             if device.type != 'cpu':
@@ -81,6 +116,9 @@ class FruitTrackingModel:
             old_img_b = 1
 
             for path, img, im0s, vid_cap in dataset:
+                if not self.running:
+                    break
+                # t1 = time()
                 img = torch.from_numpy(img).to(device)
                 img = img.half() if half else img.float()  # uint8 to fp16/32
                 img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -111,12 +149,37 @@ class FruitTrackingModel:
                 if len(det):
                     # Rescale boxes from img_size to im0 size
                     det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                    self.current_det = det
                     # Add bbox to image
                     for *xyxy, conf, cls in reversed(det):
-                        label = f'{names[int(cls)]} {conf:.2f}'
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
+                        if cls > 1:
+                            label = f'{names[int(cls)]} {conf:.2f}'
+                            # label = None
+                            plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
+                    for xyxy, cls in self.classify_result:
+                        plot_one_box(xyxy, im0, label=None, color=colors2[int(cls)], line_thickness=2)
 
                 self.current_frame = im0
+                # t2 = time()
+                # print(f"Detect time: {t2-t1}")
+
+    def classify(self):
+        models = [load_model(MANGO_WEIGHT), load_model(DRAGON_WEIGHT)]
+        while self.running:
+            t1 = time()
+            if self.current_det is None or self.current_frame is None:
+                continue
+            det = self.current_det
+            frame = self.current_frame
+            result = []
+            for *xyxy, conf, cls in reversed(det):
+                if cls < 2:
+                    im = frame[int(xyxy[1]):int(xyxy[3]), int(xyxy[0]):int(xyxy[2])]
+                    cls = classify(im, models[int(cls)])
+                    result.append((xyxy, cls))
+            self.classify_result = result
+            t2 = time()
+            print(f"Classify time: {t2-t1}")
 
     def get_stream_track(self):
         return VideoStreamTrack(self)
