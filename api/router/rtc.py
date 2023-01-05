@@ -13,12 +13,12 @@ async def rtc_streaming(offer: RTCRequest):
     pc = RTCPeerConnection(
         RTCConfiguration([
             RTCIceServer(
-                urls=["stun:14.224.131.219:3478"]
+                urls=["stun:14.224.131.219:3478"],
             ),
             RTCIceServer(
                 urls=["turn:14.224.131.219:3478"],
+                username="turnserver",
                 credential="turnserver",
-                username="turnserver"
             ),
         ])
     )
