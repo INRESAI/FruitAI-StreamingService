@@ -6,7 +6,10 @@ sys.path.append(str(ROOT/"yolov7"))
 
 from threading import Thread
 from time import time
+from typing import Callable
 
+import cv2
+import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 from aiortc import VideoStreamTrack as _VideoStreamTrack
@@ -26,6 +29,11 @@ YOLO_WEIGHT = WEIGHTS/"best.pt"
 MANGO_WEIGHT = WEIGHTS/"weight_mango_efficient.pth"
 DRAGON_WEIGHT = WEIGHTS/"weight_dragon_efficient.pth"
 
+def encode_image_jpeg(image: np.ndarray) -> bytes:
+    return cv2.imencode('.jpg', image)[1].tobytes()
+
+
+HandlerType = Callable[[str, bytes], None]
 
 class FruitTrackingModel:
     _instances: dict[str, "FruitTrackingModel"] = {}
@@ -44,6 +52,7 @@ class FruitTrackingModel:
 
     def __init__(self, url: str):
         self.url = url
+        self.event_handlers : list[HandlerType] = []
 
         self.current_det = None
         self.current_frame = None
@@ -55,7 +64,6 @@ class FruitTrackingModel:
         detect_thread.daemon = True
         detect_thread.start()
         self.detect_thread = detect_thread
-
 
         classify_thread = Thread(target=self.classify)
         classify_thread.daemon = True
@@ -165,6 +173,7 @@ class FruitTrackingModel:
 
     def classify(self):
         models = [load_model(MANGO_WEIGHT), load_model(DRAGON_WEIGHT)]
+        last_noti = time()
         while self.running:
             t1 = time()
             if self.current_det is None or self.current_frame is None:
@@ -177,12 +186,32 @@ class FruitTrackingModel:
                     im = frame[int(xyxy[1]):int(xyxy[3]), int(xyxy[0]):int(xyxy[2])]
                     cls = classify(im, models[int(cls)])
                     result.append((xyxy, cls))
+                    if cls == 2 and time() - last_noti > 60:
+                        last_noti = time()
+                        self.handle_event(EventType.ROTTEN, encode_image_jpeg(im))
             self.classify_result = result
             t2 = time()
             print(f"Classify time: {t2-t1}")
 
+    def add_event_handler(self, handler : HandlerType):
+        # allow only 1 event_handler for debugging
+        if self.event_handlers:
+            return
+        self.event_handlers.append(handler)
+
+    def handle_event(self, event_type: str, image: bytes):
+        for handler in self.event_handlers:
+            handler(event_type, image)
+
     def get_stream_track(self):
         return VideoStreamTrack(self)
+
+    def get_preview_image(self):
+        return encode_image_jpeg(self.current_frame)
+
+
+class EventType:
+    ROTTEN = "rotten"
 
 
 class VideoStreamTrack(_VideoStreamTrack):

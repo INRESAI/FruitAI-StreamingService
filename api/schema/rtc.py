@@ -10,3 +10,4 @@ class RTCRequest(BaseModel):
     type: str
     sdp: str
     url: str | None
+    token: str | None

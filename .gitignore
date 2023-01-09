@@ -1,5 +1,7 @@
 ai/weights/
 
+service_account.json
+
 .vscode/
 upload/
 test*
