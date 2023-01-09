@@ -60,6 +60,8 @@ class FruitTrackingModel:
 
     def __init__(self, camera_info: dict):
         self.url = camera_info["link"]
+
+        self.device_tokens = []
         self.event_handlers : list[HandlerType] = []
 
         self.current_det = None
@@ -206,10 +208,10 @@ class FruitTrackingModel:
             t2 = time()
             print(f"Classify time: {t2-t1}")
 
-    def add_event_handler(self, handler : HandlerType):
-        # allow only 1 event_handler for debugging
-        if self.event_handlers:
+    def add_event_handler(self, handler : HandlerType, token: str):
+        if token in self.device_tokens:
             return
+        self.device_tokens.append(token)
         self.event_handlers.append(handler)
 
     def handle_event(self, event_type: str, image: bytes):

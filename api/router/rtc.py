@@ -27,7 +27,7 @@ async def rtc_streaming(offer: RTCRequest):
                 body=f"Detected a {event_type} fruit",
                 image=f"http://178.128.19.31:4600/rtc/noti/{id}",
                 data={
-                    "camera_id": offer.camera_id,
+                    "camera_id": str(offer.camera_id),
                 }
             )
             session = BackendApiSyncSession()
@@ -53,7 +53,8 @@ async def rtc_streaming(offer: RTCRequest):
         ])
     )
     model = FruitTrackingModel.start(offer.camera_id, {"link": offer.url})
-    model.add_event_handler(handler)
+    if offer.token:
+        model.add_event_handler(handler, offer.token)
     pc.addTrack(model.get_stream_track())
     await pc.setRemoteDescription(offer)
     await pc.setLocalDescription(await pc.createAnswer())
