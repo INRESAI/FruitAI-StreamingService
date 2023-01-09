@@ -91,11 +91,16 @@ class FruitTrackingModel:
                 model.half()  # to FP16
 
             # Set Dataloader
-            if webcam:
-                cudnn.benchmark = True  # set True to speed up constant image size inference
-                dataset = LoadStreams(source, img_size=imgsz, stride=stride)
-            else:
-                dataset = LoadImages(source, img_size=imgsz, stride=stride)
+            try:
+                if webcam:
+                    cudnn.benchmark = True  # set True to speed up constant image size inference
+                    dataset = LoadStreams(source, img_size=imgsz, stride=stride)
+                else:
+                    dataset = LoadImages(source, img_size=imgsz, stride=stride)
+            except Exception as e:
+                print(e)
+                self.running = False
+                return
 
             # Get names and colors
             names = model.module.names if hasattr(model, 'module') else model.names
@@ -154,6 +159,7 @@ class FruitTrackingModel:
                     im0 =im0s[0].copy()
                 else:
                     im0 = im0s
+                self.current_frame_raw = im0
                 if len(det):
                     # Rescale boxes from img_size to im0 size
                     det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
@@ -173,13 +179,13 @@ class FruitTrackingModel:
 
     def classify(self):
         models = [load_model(MANGO_WEIGHT), load_model(DRAGON_WEIGHT)]
-        last_noti = time()
+        last_noti = 0
         while self.running:
             t1 = time()
             if self.current_det is None or self.current_frame is None:
                 continue
             det = self.current_det
-            frame = self.current_frame
+            frame = self.current_frame_raw
             result = []
             for *xyxy, conf, cls in reversed(det):
                 if cls < 2:

@@ -16,15 +16,18 @@ rtc_router = APIRouter()
 @rtc_router.post("", response_model=RTCResponse)
 async def rtc_streaming(offer: RTCRequest):
     def handler(event_type: str, image: bytes):
-        id = str(uuid4())
-        with open(f"noti/{id}", "wb") as f:
-            f.write(image)
-        send_notification(
-            token=offer.token,
-            title="Fruit Tracking",
-            body=f"Detected a {event_type} fruit",
-            image=f"http://178.128.19.31:4600/noti/{id}"
-        )
+        try:
+            id = str(uuid4())
+            with open(f"noti/{id}", "wb") as f:
+                f.write(image)
+            send_notification(
+                token=offer.token,
+                title="Fruit Tracking",
+                body=f"Detected a {event_type} fruit",
+                image=f"http://178.128.19.31:4600/rtc/noti/{id}"
+            )
+            print(offer.token)
+        except Exception as e: ...
     pc = RTCPeerConnection(
         RTCConfiguration([
             RTCIceServer(
