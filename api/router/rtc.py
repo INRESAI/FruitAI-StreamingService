@@ -9,6 +9,7 @@ from ai.model import FruitTrackingModel
 
 from ..schema.rtc import RTCRequest, RTCResponse
 from ..service.firebase import send_notification
+from ..service.backend_api import BackendApiSyncSession
 
 rtc_router = APIRouter()
 
@@ -24,10 +25,21 @@ async def rtc_streaming(offer: RTCRequest):
                 token=offer.token,
                 title="Fruit Tracking",
                 body=f"Detected a {event_type} fruit",
-                image=f"http://178.128.19.31:4600/rtc/noti/{id}"
+                image=f"http://178.128.19.31:4600/rtc/noti/{id}",
+                data={
+                    "camera_id": offer.camera_id,
+                }
+            )
+            session = BackendApiSyncSession()
+            session.create_notification(
+                title="Fruit Tracking",
+                content=f"Detected a {event_type} fruit",
+                camera_id=offer.camera_id,
+                user_id=offer.user_id,
             )
             print(offer.token)
-        except Exception as e: ...
+        except Exception as e:
+            print(e)
     pc = RTCPeerConnection(
         RTCConfiguration([
             RTCIceServer(
@@ -40,7 +52,7 @@ async def rtc_streaming(offer: RTCRequest):
             ),
         ])
     )
-    model = FruitTrackingModel.start(offer.url or "test/test1.mp4")
+    model = FruitTrackingModel.start(offer.camera_id, {"link": offer.url})
     model.add_event_handler(handler)
     pc.addTrack(model.get_stream_track())
     await pc.setRemoteDescription(offer)
@@ -62,14 +74,20 @@ def noti_image(id: str):
 
 
 @rtc_router.get("/preview")
-def preview_stream(url: str | None):
-    model = FruitTrackingModel.start(url or "test/test1.mp4")
-    def generator():
-        yield model.get_preview_image()
-    return StreamingResponse(generator(), media_type="image/jpeg")
+def preview_stream(id: str):
+    if FruitTrackingModel.status(id):
+        model = FruitTrackingModel.get(id)
+        def generator():
+            yield model.get_preview_image()
+        return StreamingResponse(generator(), media_type="image/jpeg")
+    else:
+        def generator():
+            with open("default.png", "rb") as f:
+                yield f.read()
+        return StreamingResponse(generator(), media_type="image/png")
 
 
 @rtc_router.get("/stop")
 def stop_all_stream():
-    for url in FruitTrackingModel._instances.copy():
-        FruitTrackingModel.stop(url)
+    for id in FruitTrackingModel._instances.copy():
+        FruitTrackingModel.stop(id)

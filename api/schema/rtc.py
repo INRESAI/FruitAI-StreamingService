@@ -9,5 +9,7 @@ class RTCResponse(BaseModel):
 class RTCRequest(BaseModel):
     type: str
     sdp: str
+    camera_id: str | None
+    user_id: str | None
     url: str | None
     token: str | None

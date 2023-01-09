@@ -39,19 +39,27 @@ class FruitTrackingModel:
     _instances: dict[str, "FruitTrackingModel"] = {}
 
     @classmethod
-    def start(cls, url: str):
-        if url not in cls._instances:
-            cls._instances[url] = cls(url)
-        return cls._instances[url]
+    def status(cls, id: str):
+        return id in cls._instances
 
     @classmethod
-    def stop(cls, url: str):
-        if url in cls._instances:
-            cls._instances[url].running = False
-            del cls._instances[url]
+    def start(cls, id: str, camera_info: dict):
+        if id not in cls._instances:
+            cls._instances[id] = cls(camera_info)
+        return cls._instances[id]
 
-    def __init__(self, url: str):
-        self.url = url
+    @classmethod
+    def get(cls, id: str):
+        return cls._instances.get(id)
+
+    @classmethod
+    def stop(cls, id: str):
+        if id in cls._instances:
+            cls._instances[id].running = False
+            del cls._instances[id]
+
+    def __init__(self, camera_info: dict):
+        self.url = camera_info["link"]
         self.event_handlers : list[HandlerType] = []
 
         self.current_det = None
@@ -75,7 +83,6 @@ class FruitTrackingModel:
             imgsz = 640
             conf_thres = 0.25
             iou_thres = 0.45
-            weights = ROOT/"weights"/"best.pt"
             source = self.url
             webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(('rtsp://', 'rtmp://', 'http://', 'https://'))
 
@@ -83,7 +90,7 @@ class FruitTrackingModel:
             half = device.type != 'cpu'  # half precision only supported on CUDA
 
             # Load model
-            model = attempt_load(weights, map_location=device)  # load FP32 model
+            model = attempt_load(YOLO_WEIGHT, map_location=device)  # load FP32 model
             stride = int(model.stride.max())  # model stride
             imgsz = check_img_size(imgsz, s=stride)  # check img_size
 

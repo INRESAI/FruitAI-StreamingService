@@ -1,7 +1,7 @@
 import firebase_admin.messaging as fm
 
 
-def send_notification(token: str, title: str, body: str, image: str|None = None) -> str:
+def send_notification(token: str, title: str, body: str, image: str|None = None, data: dict|None = None) -> str:
     return fm.send(
         fm.Message(
             notification=fm.Notification(
@@ -19,5 +19,6 @@ def send_notification(token: str, title: str, body: str, image: str|None = None)
                 ),
             ),
             token=token,
+            data=data or {},
         )
     )
